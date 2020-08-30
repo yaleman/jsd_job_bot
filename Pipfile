@@ -15,3 +15,6 @@ click = "*"
 
 [requires]
 python_version = "3.8"
+
+[scripts]
+start = "python jsd_job_bot.py"
