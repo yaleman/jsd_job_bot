@@ -2,8 +2,9 @@
 
 """ polls JSD to find tickets I'm assigned to """
 
-import os
 from configparser import ConfigParser
+import os
+import sys
 
 import dateutil.parser
 from jira import JIRA
@@ -15,19 +16,7 @@ if not os.environ.get('LOGURU_LEVEL'):
     os.environ['LOGURU_LEVEL'] = "INFO"
 from loguru import logger #pylint: disable=wrong-import-position,wrong-import-order
 
-config = ConfigParser()
-for config_file in ['~/.config/jsd_job_bot.ini',
-                    '~/etc/jsd_job_bot.ini',
-                    './jsd_job_bot.ini',
-                    ]:
-    if os.path.exists(config_file):
-        logger.debug(f"Loading config: {config_file}")
-        config.read(config_file)
-
-# don't show things by default
-if not config.has_option('DEFAULT', 'SHOW_ALL_JOBS'):
-    logger.debug("Setting show all jobs to false, currently unset")
-    config.set('DEFAULT', 'SHOW_ALL_JOBS', 'false')
+CONFIG_FILENAME = 'jsd_job_bot.ini'
 
 JSD_SEARCH = """assignee = currentuser() ORDER BY updated ASC"""
 
@@ -39,13 +28,30 @@ IGNORED_STATUS = [
     'Closed',
 ]
 
+config = ConfigParser()
+for config_file in [os.path.expanduser(f'~/.config/{CONFIG_FILENAME}'),
+                    os.path.expanduser(f'~/etc/{CONFIG_FILENAME}'),
+                    f'./{CONFIG_FILENAME}',
+                    ]:
+    if os.path.exists(config_file):
+        logger.debug(f"Loading config: {config_file}")
+        config.read(config_file)
+    else:
+        logger.debug(f"Couldn't find {config_file}")
+
+# don't show things by default
+if not config.has_option('DEFAULT', 'SHOW_ALL_JOBS'):
+    logger.debug("Setting show all jobs to false, currently unset")
+    config.set('DEFAULT', 'SHOW_ALL_JOBS', 'false')
+
 def ignore_this_field(fieldname):
     """ filters fields """
+    retval = False
     if fieldname.startswith("_"):
-        return True
+        retval = True
     elif fieldname.startswith("customfield"):
-        return True
-    return False
+        retval = True
+    return retval
 
 ASSIGNED_ISSUES = 0
 table = Texttable()
@@ -72,10 +78,9 @@ try:
     # noqa: pylint: disable=invalid-name
 except jira.exceptions.JIRAError as error_message:
     logger.error(error_message)
-    exit()
+    sys.exit()
 
 for issue in issues:
-    logger.debug(f"issue status: '{issue.fields.status}'")
     if config.getboolean('DEFAULT', 'SHOW_ALL_JOBS') or str(issue.fields.status).strip() not in IGNORED_STATUS:
         ASSIGNED_ISSUES += 1
         updated_parsed = dateutil.parser.parse(issue.fields.updated)
