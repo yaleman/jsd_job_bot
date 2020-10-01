@@ -1,6 +1,8 @@
 # jsd_job_bot
 Shows which jobs are in my JSD queue
 
+Installation: `pip install jsd-job-bot`
+
 You need a `jsd_job_bot.ini` config file:
 
     [DEFAULT]
@@ -18,6 +20,4 @@ The config file needs to be in one of these places:
 
 Run it, it'll show you what you've got assigned to you.
 
-Uses `pipenv` for dependencies, or you can run `pip install jira loguru python-dateutil click texttable`.
-
-
+There's also `openjsd` which opens JSD ... if you append a ticket number it'll open that.

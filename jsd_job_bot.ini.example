@@ -1,0 +1,4 @@
+[DEFAULT]
+JSD_API_KEY=<your API key>
+JSD_HOSTNAME=example.atlassian.net
+JSD_USERNAME=shirley@example.com
