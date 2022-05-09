@@ -1,4 +1,5 @@
 # jsd_job_bot
+
 Shows which jobs are in my JSD queue
 
 Installation: `pip install jsd-job-bot`
@@ -19,5 +20,3 @@ The config file needs to be in one of these places:
 * `~/etc/`
 
 Run it, it'll show you what you've got assigned to you.
-
-There's also `openjsd` which opens JSD ... if you append a ticket number it'll open that.

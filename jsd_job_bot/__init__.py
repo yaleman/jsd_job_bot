@@ -2,22 +2,23 @@
 
 """ polls JSD to find tickets I'm assigned to """
 
-from configparser import ConfigParser
+from configparser import ConfigParser, NoOptionError
 import os
+from pathlib import Path
 import sys
 
-import dateutil.parser
+from dateutil.parser import parse as parse_date
 from jira import JIRA
 import jira.exceptions
-from texttable import Texttable
+from texttable import Texttable # type: ignore
 
+
+from loguru import logger
 
 if not os.environ.get('LOGURU_LEVEL'):
-    os.environ['LOGURU_LEVEL'] = "INFO"
-try:
-    from loguru import logger #pylint: disable=wrong-import-position,wrong-import-order
-except ImportError:
-    import logging as logger
+    logger.remove()
+    logger.add(sink=sys.stderr, level="INFO")
+
 
 CONFIG_FILENAME = 'jsd_job_bot.ini'
 JSD_SEARCH = """assignee = currentuser() ORDER BY updated ASC"""
@@ -31,7 +32,7 @@ IGNORED_STATUS = [
 ]
 
 
-def ignore_this_field(fieldname):
+def ignore_this_field(fieldname: str) -> bool:
     """ filters fields """
     retval = False
     if fieldname.startswith("_"):
@@ -41,18 +42,16 @@ def ignore_this_field(fieldname):
     return retval
 
 
-def main():
+def main() -> None:
     """ the function code """
-
-
     config = ConfigParser()
-    for config_file in [os.path.expanduser(f'~/.config/{CONFIG_FILENAME}'),
-                        os.path.expanduser(f'~/etc/{CONFIG_FILENAME}'),
-                        f'./{CONFIG_FILENAME}',
+    for config_file in [Path(f'~/.config/{CONFIG_FILENAME}'),
+                        Path(f'~/etc/{CONFIG_FILENAME}'),
+                        Path(f'./{CONFIG_FILENAME}'),
                         ]:
-        if os.path.exists(config_file):
+        if config_file.resolve().expanduser().exists():
             logger.debug(f"Loading config: {config_file}")
-            config.read(config_file)
+            config.read(config_file.resolve().expanduser())
         else:
             logger.debug(f"Couldn't find {config_file}")
 
@@ -77,6 +76,12 @@ def main():
             basic_auth=(config.get('DEFAULT', 'JSD_USERNAME'), config.get('DEFAULT', 'JSD_API_KEY')),
             )
         logger.debug("Done instantiating JIRA connection...")
+    except KeyError as key_error:
+        logger.error("You're missing config options: {}", key_error)
+        sys.exit(1)
+    except NoOptionError as key_error:
+        logger.error("You're missing config options: {}", key_error)
+        sys.exit(1)
     except ConnectionError as error_message:
         logger.error(f"Connection error: {error_message}")
 
@@ -86,23 +91,24 @@ def main():
         # noqa: pylint: disable=invalid-name
     except jira.exceptions.JIRAError as error_message:
         logger.error(error_message)
-        sys.exit()
+        sys.exit(1)
 
     for issue in issues:
-        if config.getboolean('DEFAULT', 'SHOW_ALL_JOBS') or str(issue.fields.status).strip() not in IGNORED_STATUS:
-            assigned_issues += 1
-            updated_parsed = dateutil.parser.parse(issue.fields.updated)
+        status = str(issue.fields.status) # type: ignore
+        summary = str(issue.fields.summary) # type: ignore
+        updated = str(issue.fields.updated) # type: ignore
 
-            logger.debug(f"{issue}\t{issue.fields.status}\t{updated_parsed.date()}\t{issue.fields.summary}")
+        if config.getboolean('DEFAULT', 'SHOW_ALL_JOBS') or status.strip() not in IGNORED_STATUS:
+            assigned_issues += 1
+            updated_parsed = parse_date(updated)
+
+            logger.debug(f"{issue}\t{status}\t{updated_parsed.date()}\t{summary}")
             table.add_row([str(issue),
-                           str(issue.fields.status),
+                           status,
                            updated_parsed.date(),
-                           str(issue.fields.summary),
+                           summary,
                            ])
             #logger.debug([dirfield for dirfield in dir(issue.fields) if not ignore_this_field(dirfield)])
     print(table.draw())
 
     logger.info(f"{assigned_issues} tickets assigned to you...")
-
-if __name__ == '__main__':
-    main()

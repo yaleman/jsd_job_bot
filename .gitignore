@@ -4,3 +4,9 @@ __pycache__/*
 dist/
 build/
 *.egg-info
+**/__pycache__/*
+venv/
+.vscode/
+.DS_Store
+*.egg-info/
+.env

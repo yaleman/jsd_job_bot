@@ -1,0 +1,7 @@
+{
+    "auto_merge" : [
+        "loguru",
+        "texttable",
+        "python-dateutil"
+    ]
+}
